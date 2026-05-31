@@ -6,15 +6,12 @@ import starmaker_scraper
 app = Flask(__name__)
 CORS(app) # Allow cross-origin requests from the Next.js frontend
 
-# Ensure templates and static directories exist
-os.makedirs('templates', exist_ok=True)
-os.makedirs('static/css', exist_ok=True)
-os.makedirs('static/js', exist_ok=True)
+# Ensure downloads directory exists
 os.makedirs('downloads', exist_ok=True)
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return jsonify({"status": "StarMaker Scraper API is running", "version": "1.0"})
 
 @app.route('/api/download', methods=['POST'])
 def download():
