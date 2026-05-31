@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+downloads/
+.env
+venv/
+.venv/
+env/
+*.mp4
+*.json
+*.html
