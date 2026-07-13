@@ -18,6 +18,24 @@ MEDIA_EXTENSIONS = (
     ".wav",
 )
 
+REJECTED_MEDIA_PATTERNS = (
+    "/cover_image",
+    "/template_res/",
+    "template_",
+    "score_resource",
+    "/stchat/audio/",
+    "profile.jpg",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".gif",
+    ".zip",
+    ".json",
+    ".txt",
+    "/a-vue3/playrecording",
+)
+
 MEDIA_CONTENT_TYPES = (
     "audio/",
     "video/",
@@ -51,6 +69,9 @@ def looks_like_media_url(value, allow_hints=False):
 
     lower_value = unquote(value).lower()
     parsed_path = urlparse(lower_value).path
+
+    if any(pattern in lower_value for pattern in REJECTED_MEDIA_PATTERNS):
+        return False
 
     return (
         any(ext in parsed_path for ext in MEDIA_EXTENSIONS)
@@ -124,6 +145,17 @@ def extension_for_url(url):
         if ext in lower_path:
             return ext
     return ".mp4" if "video" in lower_path else ".m4a"
+
+
+def is_downloadable_recording_url(url):
+    lower_value = unquote(url).lower()
+    lower_path = urlparse(lower_value).path
+
+    return (
+        "/production/uploading/recordings/" in lower_value
+        and any(ext in lower_path for ext in (".mp4", ".m4a", ".mp3", ".aac", ".wav"))
+        and not any(pattern in lower_value for pattern in REJECTED_MEDIA_PATTERNS)
+    )
 
 
 def download_file(url, filename):
@@ -250,6 +282,9 @@ def scrape_starmaker(url):
             if not capture_state["enabled"]:
                 print(f"Ignoring pre-playback media candidate from {source}: {candidate}", flush=True)
                 return
+            if not is_downloadable_recording_url(candidate):
+                print(f"Ignoring non-recording media candidate from {source}: {candidate}", flush=True)
+                return
             if candidate and candidate not in media_candidates:
                 print(f"Captured possible media URL from {source}: {candidate}", flush=True)
                 media_candidates.append(candidate)
@@ -301,8 +336,8 @@ def scrape_starmaker(url):
         except PlaywrightTimeoutError:
             print("Initial navigation timed out; continuing with loaded page state.", flush=True)
 
-        for attempt in range(5):
-            page.wait_for_timeout(2000)
+        for attempt in range(3):
+            page.wait_for_timeout(1000)
             if media_candidates:
                 break
             if not capture_state["enabled"]:
@@ -310,7 +345,11 @@ def scrape_starmaker(url):
                 media_candidates.clear()
                 capture_state["enabled"] = True
             trigger_playback(page)
-            page.wait_for_timeout(3500)
+            if media_candidates:
+                break
+            page.wait_for_timeout(1500)
+            if media_candidates:
+                break
 
         if not title:
             try:
