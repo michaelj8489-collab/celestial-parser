@@ -167,30 +167,66 @@ def click_if_present(page, selector, label):
     return False
 
 
+def log_visible_buttons(page):
+    try:
+        labels = page.locator("button, [role='button'], a").evaluate_all(
+            """
+            elements => elements
+                .map(element => (element.innerText || element.textContent || element.getAttribute('aria-label') || '').trim())
+                .filter(Boolean)
+                .slice(0, 12)
+            """
+        )
+        if labels:
+            print(f"Visible actions: {labels}", flush=True)
+    except Exception:
+        pass
+
+
+def click_first_available(page, selectors, label):
+    for selector in selectors:
+        if click_if_present(page, selector, label):
+            return True
+    return False
+
+
 def trigger_playback(page):
-    selectors = [
+    log_visible_buttons(page)
+
+    play_selectors = [
         "button:has-text('Play')",
         "text=/^Play$/i",
         "[aria-label*='play' i]",
         ".play",
         ".play-btn",
         ".player-play",
-        "button:has-text('OK')",
-        "button:has-text('Continue')",
-        "button:has-text('Not now')",
-        "button:has-text('Cancel')",
     ]
+    if click_first_available(page, play_selectors, "play control"):
+        page.wait_for_timeout(2200)
+        log_visible_buttons(page)
 
-    clicked = False
-    for selector in selectors:
-        clicked = click_if_present(page, selector, selector) or clicked
-
-    if clicked:
+    popup_selectors = [
+        "button:has-text('Go')",
+        "text=/^Go$/i",
+        "button:has-text('Cancel')",
+        "text=/^Cancel$/i",
+        "button:has-text('OK')",
+        "text=/^OK$/i",
+        "button:has-text('Continue')",
+        "text=/^Continue$/i",
+        "button:has-text('Not now')",
+        "text=/^Not now$/i",
+        "button:has-text('Open StarMaker')",
+        "text=/Open StarMaker/i",
+    ]
+    if click_first_available(page, popup_selectors, "StarMaker popup action"):
+        page.wait_for_timeout(2500)
         return
 
+    print("No visible playback controls matched; trying fallback tap.", flush=True)
     try:
         page.mouse.click(190, 360)
-        page.wait_for_timeout(1500)
+        page.wait_for_timeout(2500)
     except Exception:
         pass
 
