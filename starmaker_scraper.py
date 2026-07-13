@@ -233,6 +233,7 @@ def trigger_playback(page):
 
 def scrape_starmaker(url):
     media_candidates = []
+    capture_state = {"enabled": False}
     title = None
 
     print("Starting browser...", flush=True)
@@ -246,6 +247,9 @@ def scrape_starmaker(url):
         page = context.new_page()
 
         def remember_media(candidate, source):
+            if not capture_state["enabled"]:
+                print(f"Ignoring pre-playback media candidate from {source}: {candidate}", flush=True)
+                return
             if candidate and candidate not in media_candidates:
                 print(f"Captured possible media URL from {source}: {candidate}", flush=True)
                 media_candidates.append(candidate)
@@ -275,8 +279,9 @@ def scrape_starmaker(url):
             except Exception:
                 return
 
-            for candidate in find_media_urls(data):
-                remember_media(candidate, "json")
+            if capture_state["enabled"]:
+                for candidate in find_media_urls(data):
+                    remember_media(candidate, "json")
 
             if not title:
                 username = first_text(data, {"username", "user_name", "name", "nickname"})
@@ -296,11 +301,16 @@ def scrape_starmaker(url):
         except PlaywrightTimeoutError:
             print("Initial navigation timed out; continuing with loaded page state.", flush=True)
 
-        for _ in range(4):
-            page.wait_for_timeout(2500)
+        for attempt in range(5):
+            page.wait_for_timeout(2000)
             if media_candidates:
                 break
+            if not capture_state["enabled"]:
+                print("Starting post-playback media capture window.", flush=True)
+                media_candidates.clear()
+                capture_state["enabled"] = True
             trigger_playback(page)
+            page.wait_for_timeout(3500)
 
         if not title:
             try:
